@@ -250,3 +250,52 @@ def get_institutional_analytics():
     finally:
         cursor.close()
         conn.close()
+
+
+class CurriculumRequest(BaseModel):
+    student_id: str
+    current_novelty_score: float
+    focus_domain: str
+
+@app.post("/agents/curriculum-customizer")
+def customize_curriculum(request: CurriculumRequest):
+    tier = "Elite Venture-Track" if request.current_novelty_score >= 90.0 else "Foundational Sovereign Track"
+    
+    modules = [
+        {"week": 1, "module": "Advanced Vector Database Optimization & pgvector Indexing"},
+        {"week": 2, "module": "Multi-Agent Orchestration Pipelines under FastAPI & Render"},
+        {"week": 3, "module": "Cryptographic Credential Minting and Autonomous CI/CD"},
+        {"week": 4, "module": "Production Scalability & The 70/30 Execution Standard"}
+    ]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            \"\"\"
+            INSERT INTO compliance_logs (user_id, content_stream, status, action_taken)
+            VALUES (%s, %s, %s, %s);
+            \"\"\",
+            (
+                request.student_id,
+                f"Domain: {request.focus_domain}",
+                "curriculum_generated",
+                f"Assigned Tier: {tier}"
+            )
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+    return {
+        "institution": "Lumina AI University Global Academic Board",
+        "student_id": request.student_id,
+        "assigned_tier": tier,
+        "focus_domain": request.focus_domain,
+        "personalized_syllabus": modules,
+        "execution_standard": "70/30 Production Execution Model",
+        "status": "Custom Curriculum Deployed"
+    }
