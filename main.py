@@ -329,3 +329,25 @@ def defend_thesis(request: ThesisRequest):
             {"reviewer": "Ethical Governance Officer", "rating": "97%", "note": "Full audit logs and non-repudiable transaction trails verified."}
         ]
     }
+
+class GrantRequest(BaseModel):
+    student_id: str
+    project_title: str
+    requested_grant_usd: float
+    novelty_score: float
+    committee_score: float
+    gpu_cluster_preference: str
+
+@app.post("/agents/grant-allocator")
+def allocate_grant(request: GrantRequest):
+    approved_usd = min(request.requested_grant_usd, 100000.0) if request.novelty_score >= 85.0 else 10000.0
+    return {
+        "student_id": request.student_id,
+        "project_title": request.project_title,
+        "grant_status": "APPROVED - SEED TIER ALLOCATED",
+        "allocated_funding_usd": approved_usd,
+        "allocated_h100_gpu_hours": 1200,
+        "venture_incubator_tier": "Mamachi Sovereign Capital Elite Track",
+        "term_sheet_hash": "f8c7e6d5c4b3a2910123456789abcdef0123456789abcdef0123456789abcdef",
+        "disbursement_schedule": "40% Upfront / 60% Milestone-based (70/30 Execution standard)"
+    }
