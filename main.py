@@ -4,9 +4,21 @@ from fastapi import FastAPI, HTTPException
 import psycopg2
 from pydantic import BaseModel
 
-app = FastAPI(title="Lumina AI University Sovereign Core")
+app = FastAPI(title="Lumina AI University Sovereign Core", version="1.0.0")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+class SubmissionCreate(BaseModel):
+    student_id: str
+    repository_url: str
+    novelty_score: float
+    status: str
+    embedding: List[float]
+
+class VectorSearchQuery(BaseModel):
+    query_embedding: List[float]
+    match_threshold: Optional[float] = 0.7
+    match_count: Optional[int] = 5
 
 class StudentSubmission(BaseModel):
     student_id: str
@@ -19,6 +31,13 @@ class ComplianceCheck(BaseModel):
     content_stream: str
     action_type: str
     channel_type: str
+
+class MasterSubmission(BaseModel):
+    student_id: str
+    repository_url: str
+    code_telemetry_logs: str
+    socratic_transcript: str
+    query_embedding: List[float]
 
 def get_db_connection():
     if not DATABASE_URL:
@@ -33,127 +52,91 @@ def read_root():
         "institutional_standard": "70/30 Production Execution Model"
     }
 
-@app.post("/agents/innovation-scout")
-def evaluate_student_innovation(submission: StudentSubmission):
-    novelty_score = 94.5
-    status = "Venture-Track & Elite Honor Awarded"
-    dummy_embedding = [0.01] * 1536
-
+@app.post("/api/v1/submissions")
+def create_submission(submission: SubmissionCreate):
+    if len(submission.embedding) != 1536:
+        raise HTTPException(status_code=400, detail="Embedding vector must have exactly 1536 dimensions.")
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            \"\"\"
-            INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding)
-            VALUES (%s, %s, %s, %s, %s::vector);
-            \"\"\",
-            (
-                submission.student_id,
-                submission.repository_url,
-                novelty_score,
-                status,
-                str(dummy_embedding)
-            )
-        )
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
-
-    return {
-        "student_id": submission.student_id,
-        "novelty_score": novelty_score,
-        "status": status,
-        "compute_credits_awarded": 25000,
-        "patent_pipeline_initiated": True,
-        "executive_approval_card_generated": True
-    }
-
-@app.post("/agents/ethical-compliance")
-def moderate_content_stream(check: ComplianceCheck):
-    status = "cleared"
-    threat_detected = False
-    action_taken = f"Approved via {check.channel_type} under 70/30 standard"
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            \"\"\"
-            INSERT INTO compliance_logs (user_id, content_stream, status, action_taken)
-            VALUES (%s, %s, %s, %s);
-            \"\"\",
-            (
-                check.user_id,
-                check.content_stream,
-                status,
-                action_taken
-            )
-        )
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-    finally:
-        cursor.close()
-        conn.close()
-
-    return {
-        "status": status,
-        "threat_detected": threat_detected
-    }
-
-
-@app.post("/agents/socratic-tutor")
-def socratic_tutor_guidance(query: VectorSearchQuery):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            \"\"\"
-            SELECT student_id, repository_url, novelty_score, status, 
-                   1 - (embedding <=> %s::vector) AS similarity
-            FROM student_submissions
-            ORDER BY embedding <=> %s::vector ASC
-            LIMIT 1;
-            \"\"\",
-            (
-                str(query.query_embedding),
-                str(query.query_embedding)
-            )
-        )
+        cursor.execute("INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding) VALUES (%s, %s, %s, %s, %s::vector) RETURNING id, created_at;", (submission.student_id, submission.repository_url, submission.novelty_score, submission.status, str(submission.embedding)))
         row = cursor.fetchone()
-        if not row:
-            return {"guidance": "No prior context found. Initiate baseline research vector."}
+        conn.commit()
+        return {"status": "success", "submission_id": row[0], "created_at": row[1]}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
 
-        matched_submission = {
-            "student_id": row[0],
-            "repository_url": row[1],
-            "novelty_score": row[2],
-            "status": row[3],
-            "similarity": float(row[4])
-        }
-
-        return {
-            "agent": "Lumina Socratic Tutor",
-            "matched_historical_context": matched_submission,
-            "inquiry": "Your architecture demonstrates strong alignment with sovereign execution. How does your vector indexing strategy scale under high-concurrency evaluation?",
-            "action_required": "Submit updated telemetry logs for re-evaluation."
-        }
+@app.post("/api/v1/submissions/search")
+def search_submissions(query: VectorSearchQuery):
+    if len(query.query_embedding) != 1536:
+        raise HTTPException(status_code=400, detail="Query embedding vector must have exactly 1536 dimensions.")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id, student_id, repository_url, novelty_score, status, 1 - (embedding <=> %s::vector) AS similarity FROM student_submissions ORDER BY embedding <=> %s::vector ASC LIMIT %s;", (str(query.query_embedding), str(query.query_embedding), query.match_count))
+        rows = cursor.fetchall()
+        results = [{"id": r[0], "student_id": r[1], "repository_url": r[2], "novelty_score": r[3], "status": r[4], "similarity_score": float(r[5])} for r in rows]
+        return {"matches": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         cursor.close()
         conn.close()
 
+@app.post("/agents/innovation-scout")
+def evaluate_student_innovation(submission: StudentSubmission):
+    novelty_score = 94.5
+    status = "Venture-Track & Elite Honor Awarded"
+    dummy_embedding = [0.01] * 1536
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding) VALUES (%s, %s, %s, %s, %s::vector);", (submission.student_id, submission.repository_url, novelty_score, status, str(dummy_embedding)))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+    return {"student_id": submission.student_id, "novelty_score": novelty_score, "status": status, "compute_credits_awarded": 25000, "patent_pipeline_initiated": True, "executive_approval_card_generated": True}
 
-class MasterSubmission(BaseModel):
-    student_id: str
-    repository_url: str
-    code_telemetry_logs: str
-    socratic_transcript: str
-    query_embedding: List[float]
+@app.post("/agents/ethical-compliance")
+def moderate_content_stream(check: ComplianceCheck):
+    status = "cleared"
+    threat_detected = False
+    action_taken = f"Approved via {check.channel_type} under 70/30 standard"
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO compliance_logs (user_id, content_stream, status, action_taken) VALUES (%s, %s, %s, %s);", (check.user_id, check.content_stream, status, action_taken))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+    return {"status": status, "threat_detected": threat_detected}
+
+@app.post("/agents/socratic-tutor")
+def socratic_tutor_guidance(query: VectorSearchQuery):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT student_id, repository_url, novelty_score, status, 1 - (embedding <=> %s::vector) AS similarity FROM student_submissions ORDER BY embedding <=> %s::vector ASC LIMIT 1;", (str(query.query_embedding), str(query.query_embedding)))
+        row = cursor.fetchone()
+        if not row:
+            return {"guidance": "No prior context found. Initiate baseline research vector."}
+        matched_submission = {"student_id": row[0], "repository_url": row[1], "novelty_score": row[2], "status": row[3], "similarity": float(row[4])}
+        return {"agent": "Lumina Socratic Tutor", "matched_historical_context": matched_submission, "inquiry": "Your architecture demonstrates strong alignment with sovereign execution. How does your vector indexing strategy scale under high-concurrency evaluation?", "action_required": "Submit updated telemetry logs for re-evaluation."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.post("/agents/orchestrate")
 def master_orchestrate(submission: MasterSubmission):
@@ -161,69 +144,19 @@ def master_orchestrate(submission: MasterSubmission):
     threat_detected = False
     novelty_score = 94.5
     honor_status = "Venture-Track & Elite Honor Awarded"
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     matched_submission = None
     try:
-        cursor.execute(
-            \"\"\"
-            SELECT student_id, repository_url, novelty_score, status, 
-                   1 - (embedding <=> %s::vector) AS similarity
-            FROM student_submissions
-            ORDER BY embedding <=> %s::vector ASC
-            LIMIT 1;
-            \"\"\",
-            (
-                str(submission.query_embedding),
-                str(submission.query_embedding)
-            )
-        )
+        cursor.execute("SELECT student_id, repository_url, novelty_score, status, 1 - (embedding <=> %s::vector) AS similarity FROM student_submissions ORDER BY embedding <=> %s::vector ASC LIMIT 1;", (str(submission.query_embedding), str(submission.query_embedding)))
         row = cursor.fetchone()
         if row:
-            matched_submission = {
-                "student_id": row[0],
-                "repository_url": row[1],
-                "novelty_score": row[2],
-                "status": row[3],
-                "similarity": float(row[4])
-            }
-            
-        cursor.execute(
-            \"\"\"
-            INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding)
-            VALUES (%s, %s, %s, %s, %s::vector);
-            \"\"\",
-            (
-                submission.student_id,
-                submission.repository_url,
-                novelty_score,
-                honor_status,
-                str(submission.query_embedding)
-            )
-        )
+            matched_submission = {"student_id": row[0], "repository_url": row[1], "novelty_score": row[2], "status": row[3], "similarity": float(row[4])}
+        cursor.execute("INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding) VALUES (%s, %s, %s, %s, %s::vector);", (submission.student_id, submission.repository_url, novelty_score, honor_status, str(submission.query_embedding)))
         conn.commit()
     except Exception as e:
         conn.rollback()
     finally:
         cursor.close()
         conn.close()
-
-    return {
-        "orchestration_status": "success",
-        "institutional_standard": "70/30 Production Execution Model",
-        "compliance_audit": {
-            "status": compliance_status,
-            "threat_detected": threat_detected
-        },
-        "innovation_evaluation": {
-            "novelty_score": novelty_score,
-            "status": honor_status,
-            "compute_credits_awarded": 25000,
-            "patent_pipeline_initiated": True
-        },
-        "socratic_guidance": {
-            "matched_historical_context": matched_submission,
-            "inquiry": "Your architecture demonstrates strong sovereign alignment. How does your vector indexing strategy scale under high-concurrency evaluation?"
-        }
-    }
+    return {"orchestration_status": "success", "institutional_standard": "70/30 Production Execution Model", "compliance_audit": {"status": compliance_status, "threat_detected": threat_detected}, "innovation_evaluation": {"novelty_score": novelty_score, "status": honor_status, "compute_credits_awarded": 25000, "patent_pipeline_initiated": True}, "socratic_guidance": {"matched_historical_context": matched_submission, "inquiry": "Your architecture demonstrates strong sovereign alignment. How does your vector indexing strategy scale under high-concurrency evaluation?"}}
