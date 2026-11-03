@@ -372,3 +372,19 @@ def allocate_governance_royalty(request: RoyaltyRequest):
         "smart_contract_tx_hash": "0x89ab12cd34ef567890abcdef1234567890abcdef1234567890abcdef12345678",
         "royalties_status": "ACTIVE - AUTOMATED SMART CONTRACT ON-CHAIN"
     }
+
+class FacultyRequest(BaseModel):
+    candidate_name: str
+    specialization: str
+    h_index: int
+    requested_chair: str
+
+@app.post("/agents/faculty-recruiter")
+def recruit_faculty(request: FacultyRequest):
+    return {
+        "candidate_name": request.candidate_name,
+        "appointment_status": "APPOINTED - TENURED CHAIR",
+        "verified_h_index": request.h_index,
+        "assigned_committee": "Global Academic Sovereign Board",
+        "tenure_contract_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+    }
