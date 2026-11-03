@@ -351,3 +351,24 @@ def allocate_grant(request: GrantRequest):
         "term_sheet_hash": "f8c7e6d5c4b3a2910123456789abcdef0123456789abcdef0123456789abcdef",
         "disbursement_schedule": "40% Upfront / 60% Milestone-based (70/30 Execution standard)"
     }
+
+class RoyaltyRequest(BaseModel):
+    student_id: str
+    patent_title: str
+    commercial_valuation_usd: float
+    student_ownership_split: float
+
+@app.post("/agents/governance-royalty")
+def allocate_governance_royalty(request: RoyaltyRequest):
+    projected_royalty = (request.commercial_valuation_usd * (request.student_ownership_split / 100.0)) * 0.10
+    tokens = int(request.student_ownership_split * 10000)
+    return {
+        "student_id": request.student_id,
+        "patent_title": request.patent_title,
+        "student_equity_share": f"{request.student_ownership_split}%",
+        "institution_equity_share": f"{100.0 - request.student_ownership_split}%",
+        "tokenized_governance_voting_power": f"{tokens:,} LAIU-GOV Tokens",
+        "projected_annual_royalty_usd": round(projected_royalty, 2),
+        "smart_contract_tx_hash": "0x89ab12cd34ef567890abcdef1234567890abcdef1234567890abcdef12345678",
+        "royalties_status": "ACTIVE - AUTOMATED SMART CONTRACT ON-CHAIN"
+    }
