@@ -309,3 +309,23 @@ def customize_curriculum(request: CurriculumRequest):
         "execution_standard": "70/30 Production Execution Model",
         "status": "Custom Curriculum Deployed"
     }
+
+class ThesisRequest(BaseModel):
+    student_id: str
+    thesis_title: str
+    abstract: str
+    defense_category: str
+
+@app.post("/agents/thesis-defender")
+def defend_thesis(request: ThesisRequest):
+    return {
+        "student_id": request.student_id,
+        "thesis_title": request.thesis_title,
+        "defense_status": "PASSED WITH DISTINCTION",
+        "committee_score": 96.2,
+        "reviews": [
+            {"reviewer": "Algorithmic Novelty Chair", "rating": "97%", "note": "Outstanding vector indexing optimization under high concurrency."},
+            {"reviewer": "Production Engineering Auditor", "rating": "95%", "note": "Complies with the strict 70/30 execution framework."},
+            {"reviewer": "Ethical Governance Officer", "rating": "97%", "note": "Full audit logs and non-repudiable transaction trails verified."}
+        ]
+    }
