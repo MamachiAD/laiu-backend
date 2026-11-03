@@ -103,3 +103,46 @@ def moderate_content_stream(check: ComplianceCheck):
         "status": status,
         "threat_detected": threat_detected
     }
+
+
+@app.post("/agents/socratic-tutor")
+def socratic_tutor_guidance(query: VectorSearchQuery):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            \"\"\"
+            SELECT student_id, repository_url, novelty_score, status, 
+                   1 - (embedding <=> %s::vector) AS similarity
+            FROM student_submissions
+            ORDER BY embedding <=> %s::vector ASC
+            LIMIT 1;
+            \"\"\",
+            (
+                str(query.query_embedding),
+                str(query.query_embedding)
+            )
+        )
+        row = cursor.fetchone()
+        if not row:
+            return {"guidance": "No prior context found. Initiate baseline research vector."}
+
+        matched_submission = {
+            "student_id": row[0],
+            "repository_url": row[1],
+            "novelty_score": row[2],
+            "status": row[3],
+            "similarity": float(row[4])
+        }
+
+        return {
+            "agent": "Lumina Socratic Tutor",
+            "matched_historical_context": matched_submission,
+            "inquiry": "Your architecture demonstrates strong alignment with sovereign execution. How does your vector indexing strategy scale under high-concurrency evaluation?",
+            "action_required": "Submit updated telemetry logs for re-evaluation."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
