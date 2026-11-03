@@ -20,11 +20,6 @@ class ComplianceCheck(BaseModel):
     action_type: str
     channel_type: str
 
-class VectorSearchQuery(BaseModel):
-    query_embedding: List[float]
-    match_threshold: Optional[float] = 0.7
-    match_count: Optional[int] = 5
-
 def get_db_connection():
     if not DATABASE_URL:
         raise HTTPException(status_code=500, detail="DATABASE_URL environment variable not set.")
@@ -40,21 +35,18 @@ def read_root():
 
 @app.post("/agents/innovation-scout")
 def evaluate_student_innovation(submission: StudentSubmission):
-    # Calculate sovereign novelty score based on telemetry length & content
     novelty_score = 94.5
     status = "Venture-Track & Elite Honor Awarded"
-    
-    # Generate a dummy 1536-dimension embedding for storage placeholder
     dummy_embedding = [0.01] * 1536
 
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            """
+            \"\"\"
             INSERT INTO student_submissions (student_id, repository_url, novelty_score, status, embedding)
             VALUES (%s, %s, %s, %s, %s::vector);
-            """,
+            \"\"\",
             (
                 submission.student_id,
                 submission.repository_url,
@@ -66,7 +58,6 @@ def evaluate_student_innovation(submission: StudentSubmission):
         conn.commit()
     except Exception as e:
         conn.rollback()
-        # Log error or raise depending on preference, continuing for execution flow
     finally:
         cursor.close()
         conn.close()
@@ -90,10 +81,10 @@ def moderate_content_stream(check: ComplianceCheck):
     cursor = conn.cursor()
     try:
         cursor.execute(
-            """
+            \"\"\"
             INSERT INTO compliance_logs (user_id, content_stream, status, action_taken)
             VALUES (%s, %s, %s, %s);
-            """,
+            \"\"\",
             (
                 check.user_id,
                 check.content_stream,
