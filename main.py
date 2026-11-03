@@ -4,7 +4,17 @@ from fastapi import FastAPI, HTTPException
 import psycopg2
 from pydantic import BaseModel
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Lumina AI University Sovereign Core", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
