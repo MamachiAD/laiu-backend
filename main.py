@@ -160,3 +160,60 @@ def master_orchestrate(submission: MasterSubmission):
         cursor.close()
         conn.close()
     return {"orchestration_status": "success", "institutional_standard": "70/30 Production Execution Model", "compliance_audit": {"status": compliance_status, "threat_detected": threat_detected}, "innovation_evaluation": {"novelty_score": novelty_score, "status": honor_status, "compute_credits_awarded": 25000, "patent_pipeline_initiated": True}, "socratic_guidance": {"matched_historical_context": matched_submission, "inquiry": "Your architecture demonstrates strong sovereign alignment. How does your vector indexing strategy scale under high-concurrency evaluation?"}}
+
+
+import hashlib
+from datetime import datetime
+
+class CertificateRequest(BaseModel):
+    student_id: str
+    program_tier: str
+    novelty_score: float
+
+@app.post("/agents/certificate-issuer")
+def issue_academic_credential(request: CertificateRequest):
+    if request.novelty_score < 70.0:
+        raise HTTPException(status_code=400, detail="Novelty score does not meet the 70/30 institutional standard for certification.")
+    
+    timestamp = datetime.utcnow().isoformat()
+    raw_hash_string = f"{request.student_id}-{request.program_tier}-{timestamp}-{request.novelty_score}"
+    credential_hash = hashlib.sha256(raw_hash_string.encode()).hexdigest()
+    
+    credential_id = f"LAIU-CERT-2026-{credential_hash[:8].upper()}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            \"\"\"
+            INSERT INTO compliance_logs (user_id, content_stream, status, action_taken)
+            VALUES (%s, %s, %s, %s);
+            \"\"\",
+            (
+                request.student_id,
+                f"Program: {request.program_tier}",
+                "certified",
+                f"Issued Credential ID: {credential_id}"
+            )
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()
+
+    return {
+        "issuer": "Lumina AI University Global Academic Board",
+        "credential_id": credential_id,
+        "student_id": request.student_id,
+        "program_tier": request.program_tier,
+        "novelty_score": request.novelty_score,
+        "verification_hash": credential_hash,
+        "status": "Verified & Issued",
+        "issued_at": timestamp,
+        "badge_metadata": {
+            "color_palette": ["Electric Blue", "Luxury Gold", "Obsidian Dark"],
+            "design_standard": "Minimalist High-Contrast 3D Vector"
+        }
+    }
