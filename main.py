@@ -12,7 +12,30 @@ PAYPAL_CLIENT_SECRET = os.getenv("EHIZuKcDjjG6KgS-IgHXMUIbUFcryQ_xxM7PKIJKWgvQxJ
 
 # Initialize your FastAPI app
 app = FastAPI(title="Lumina University API")
+from fastapi import Request, HTTPException
+import hmac
+import hashlib
 
+@app.post("/api/paypal-webhook")
+async def paypal_webhook(request: Request):
+    body = await request.json()
+    
+    # Verify event type from PayPal
+    event_type = body.get("event_type")
+    
+    if event_type == "PAYMENT.CAPTURE.COMPLETED":
+        resource = body.get("resource", {})
+        amount = resource.get("amount", {}).get("value")
+        currency = resource.get("amount", {}).get("currency_code")
+        payer_email = resource.get("payer", {}).get("email_address")
+        
+        # TODO: Add your automated database/student provisioning logic here
+        # Example: grant_student_access(payer_email, amount)
+        
+        print(f"✅ Payment received successfully: {amount} {currency} from {payer_email}")
+        return {"status": "success", "message": "Webhook processed and access provisioned"}
+        
+    return {"status": "ignored", "event_type": event_type}
 @app.get("/")
 def read_root():
     return {"status": "Lumina University Backend Active", "client_id": PAYPAL_CLIENT_ID}import os
