@@ -1,4 +1,21 @@
 import os
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Load environment variables from your local .env file
+load_dotenv()
+
+# Secure server-side credential bindings
+PAYPAL_CLIENT_ID = os.getenv("BAAdTQoKCMCdBYqPKpuJX-7QhQekxNAbEPFPVnYxjAuhW5qEH4Dm6jxUK3lhJuupkVUianPZV8u_qEfnFE")
+PAYPAL_CLIENT_SECRET = os.getenv("EHIZuKcDjjG6KgS-IgHXMUIbUFcryQ_xxM7PKIJKWgvQxJFQnX6Iv6I67EmSzWOCSycOBkeLW_3bNPep") # Server-side only
+
+# Initialize your FastAPI app
+app = FastAPI(title="Lumina University API")
+
+@app.get("/")
+def read_root():
+    return {"status": "Lumina University Backend Active", "client_id": PAYPAL_CLIENT_ID}import os
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 import psycopg2
