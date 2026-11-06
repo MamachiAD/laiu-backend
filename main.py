@@ -9,8 +9,13 @@ from supabase import create_client, Client
 import uvicorn
 
 # --- Supabase Configuration ---
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://your-project.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "your-anon-key")
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Loads variables from your environment or .env file
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hwmuvewmkytzqnivperx.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6Y2l4bXliaXZvcGRhZmp3cmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MTY2OTUsImV4cCI6MjEwOTI5MjY5NX0.PZTU5b_7fpocQBzRFLMAmM9GH7WpqTdOkUrS2fgloAo")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="Lumina AI University Enterprise Sovereign Ecosystem V90")
