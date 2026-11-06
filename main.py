@@ -4,6 +4,7 @@ import json
 import asyncio
 from fastapi import FastAPI, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
 import uvicorn
 
@@ -21,6 +22,91 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Automated Interactive Dashboard Route ---
+@app.get("/", response_class=HTMLResponse)
+async def get_dashboard():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Lumina AI University - Live Sovereign Chat</title>
+        <style>
+            body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+            h2 { color: #38bdf8; margin-top: 0; }
+            #tutorChatBox { height: 400px; border: 1px solid #334155; background: #090d16; border-radius: 8px; padding: 15px; overflow-y: scroll; margin-bottom: 15px; }
+            .controls { display: flex; gap: 10px; }
+            select, input, button { padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #334155; color: #fff; font-family: monospace; }
+            input { flex-grow: 1; }
+            button { background: #10b981; border: none; font-weight: bold; cursor: pointer; }
+            button:hover { background: #059669; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Lumina AI University — Swarm Control</h2>
+            <div style="font-size: 12px; margin-bottom: 10px; color: #94a3b8;">
+                Student ID: <span id="dash-student-id">LAIU-V90-001</span>
+            </div>
+            <div id="tutorChatBox"></div>
+            <div class="controls">
+                <select id="agentPersona">
+                    <option value="auditor">Cyber Compliance Auditor</option>
+                    <option value="assessor">EU AI Act Risk Assessor</option>
+                    <option value="trainer">Distributed Megatron Trainer</option>
+                </select>
+                <input type="text" id="tutorInput" placeholder="Ask your AI agent or enter compliance query..." onkeydown="if(event.key==='Enter') sendMultiAgentPromptWS();">
+                <button onclick="sendMultiAgentPromptWS()">Send Stream</button>
+            </div>
+        </div>
+        <script>
+            let chatSocket = null;
+            function initLuminaChatWebSocket() {
+                chatSocket = new WebSocket('ws://127.0.0.1:8035/ws/lumina-chat');
+                chatSocket.onmessage = function(event) {
+                    let msg = JSON.parse(event.data);
+                    let chatBox = document.getElementById('tutorChatBox');
+                    if (msg.type === 'start') {
+                        let streamDiv = document.createElement('div');
+                        streamDiv.id = 'activeStreamBubble';
+                        streamDiv.style.cssText = 'margin-bottom:10px; text-align:left; color:#10B981; font-size:12px; font-family:monospace;';
+                        streamDiv.innerText = `[${msg.persona.toUpperCase()}]: `;
+                        chatBox.appendChild(streamDiv);
+                    } else if (msg.type === 'token') {
+                        let activeBubble = document.getElementById('activeStreamBubble');
+                        if (activeBubble) {
+                            activeBubble.innerText += msg.content;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    } else if (msg.type === 'end') {
+                        let activeBubble = document.getElementById('activeStreamBubble');
+                        if (activeBubble) activeBubble.id = '';
+                    }
+                };
+                chatSocket.onclose = function() {
+                    setTimeout(initLuminaChatWebSocket, 3000);
+                };
+            }
+            function sendMultiAgentPromptWS() {
+                let persona = document.getElementById('agentPersona').value;
+                let input = document.getElementById('tutorInput').value;
+                if (!input || !chatSocket) return;
+                let chatBox = document.getElementById('tutorChatBox');
+                chatBox.innerHTML += `<div style="margin-bottom:10px; text-align:right;"><span style="background:rgba(56,189,248,0.2); padding:8px 12px; border-radius:10px; display:inline-block; font-size:12px; color:#38bdf8;">${input}</span></div>`;
+                chatSocket.send(JSON.stringify({
+                    persona: persona,
+                    message: input,
+                    student_id: document.getElementById('dash-student-id').innerText
+                }));
+                document.getElementById('tutorInput').value = '';
+            }
+            document.addEventListener('DOMContentLoaded', initLuminaChatWebSocket);
+        </script>
+    </body>
+    </html>
+    """
 
 # --- WebSocket Lumina Chat Swarm Endpoint ---
 @app.websocket("/ws/lumina-chat")
@@ -94,10 +180,6 @@ async def register_certificate(payload: dict):
     }).execute()
     
     return {"status": "success", "data": res.data}
-
-@app.get("/")
-def index():
-    return Response(content="<h1>LAIU V90 Enterprise Backend Active</h1>", media_type="text/html")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8035)
