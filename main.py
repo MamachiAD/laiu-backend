@@ -2,7 +2,7 @@
 import os
 import json
 import asyncio
-from fastapi import FastAPI, Response, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from supabase import create_client, Client
@@ -118,9 +118,8 @@ async def lumina_chat_websocket(websocket: WebSocket):
             payload = json.loads(data)
             persona = payload.get("persona", "auditor")
             user_message = payload.get("message", "")
-            student_id_code = payload.get("student_id", "GUEST")
 
-            # Store user query in Supabase (async non-blocking log)
+            # Store user query in Supabase
             try:
                 supabase.table("chat_history").insert({
                     "persona": persona,
@@ -130,7 +129,7 @@ async def lumina_chat_websocket(websocket: WebSocket):
             except Exception as e:
                 print(f"[Supabase Log Warning]: {e}")
 
-            # Determine response persona prefix
+            # Determine response persona prefix and reply
             if persona == "auditor":
                 prefix = "[Cyber Compliance Auditor]: "
                 reply = f"Evaluating prompt for EU AI Act High-Risk Tiering and NIST AI RMF compliance. Controls verified for input: '{user_message}'."
